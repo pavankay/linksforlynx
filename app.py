@@ -30,7 +30,8 @@ app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USE_SSL'] = False
 app.config['MAIL_USERNAME'] = 'LinksforLynxautoemailsender@gmail.com'  # Use your actual Gmail address
-app.config['MAIL_PASSWORD'] = 'lgyi gyds byfr tmwl'     # Use your generated App Password
+#use env variables for password
+app.config['MAIL_PASSWORD'] = os.getenv('PASSWORD')     # Use your generated App Password
 app.config['MAIL_DEFAULT_SENDER'] = 'LinksforLynxautoemailsender@gmail.com'  # Ensure this matches MAIL_USERNAME
 
 mail = Mail(app)
