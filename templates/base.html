@@ -8,13 +8,13 @@
     <link href="{{ url_for('static', filename='styles.css') }}" rel="stylesheet">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg bg-primary fixed-top" data-bs-theme="dark">
+    <nav class="navbar navbar-expand-lg bg-primary fixed-top navbar-dark">
         <div class="container-fluid">
             <a class="navbar-brand text-light" href="{{ url_for('index') }}">Links for Lynx</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#offcanvasNavbar" aria-controls="offcanvasNavbar">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <div class="collapse navbar-collapse">
+            <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'index' %}active{% endif %}" aria-current="page" href="{{ url_for('index') }}">Home</a>
@@ -36,7 +36,7 @@
                     {% endif %}
                 </ul>
                 {% if 'user' in session %}
-                <span class="navbar-text text-light ms-3">
+                <span class="navbar-text text-light ms-auto">
                     Welcome, {{ session['user'] }}
                 </span>
                 {% endif %}
@@ -63,7 +63,7 @@
 
     <footer class="bg-primary text-light text-center py-3 mt-auto">
         <div class="container">
-            <p class="mb-0">&copy; 2024 Links for Lynx. All rights reserved.</p>
+            <p class="mb-0">Created by Arjun and Xander</p>
         </div>
     </footer>
 
