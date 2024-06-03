@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Add Project - Links for Lynx{% endblock %}
+
+{% block content %}
+<div class="row mt-5">
+    <div class="col-md-8 mx-auto">
+        <h1 class="text-center">Add Project</h1>
+        <form method="POST">
+            <div class="mb-3">
+                <label for="title" class="form-label">Project Title</label>
+                <input type="text" class="form-control" id="title" name="title" required>
+            </div>
+            <div class="mb-3">
+                <label for="description" class="form-label">Project Description</label>
+                <textarea class="form-control" id="description" name="description" rows="3" required></textarea>
+            </div>
+            <div class="mb-3">
+                <label for="iframe_code" class="form-label">Iframe Code</label>
+                <textarea class="form-control" id="iframe_code" name="iframe_code" rows="3" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Add Project</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

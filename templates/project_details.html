@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Project Details - {{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="row mt-5">
+    <div class="col-md-12">
+        <h1>{{ project.title }}</h1>
+        <p><strong>Description:</strong> {{ project.description }}</p>
+        <p><strong>Created by:</strong> {{ project.username }}</p>
+        <!-- Render the iframe code correctly -->
+        <div class="embed-responsive embed-responsive-16by9">
+            {{ project.iframe_code|safe }}
+        </div>
+        <a href="{{ url_for('my_projects') }}" class="btn btn-primary mt-3">Back to My Projects</a>
+    </div>
+</div>
+{% endblock %}

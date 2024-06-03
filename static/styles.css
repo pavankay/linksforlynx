@@ -1,0 +1,18 @@
+body {
+    padding-top: 56px;
+}
+
+.card img, .card iframe {
+    height: 200px;
+    object-fit: cover;
+}
+
+footer {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+}
+
+.navbar-nav .nav-link.active {
+    font-weight: bold;
+}
