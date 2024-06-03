@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_pymongo import PyMongo
 from flask_bcrypt import Bcrypt
+from flask_mail import Mail, Message
+from itsdangerous import URLSafeTimedSerializer
 from bson.objectid import ObjectId
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
@@ -22,11 +24,38 @@ app.config["MONGO_URI"] = f"mongodb+srv://pavan:PsxriMfTSYLltWgK@lfl.rvewoyg.mon
 mongo = PyMongo(app)
 bcrypt = Bcrypt(app)
 
+# Email configuration
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USE_SSL'] = False
+app.config['MAIL_USERNAME'] = 'your_email@gmail.com'  # Use your actual Gmail address
+app.config['MAIL_PASSWORD'] = 'your_app_password'     # Use your generated App Password
+app.config['MAIL_DEFAULT_SENDER'] = 'your_email@gmail.com'  # Ensure this matches MAIL_USERNAME
+
+mail = Mail(app)
+s = URLSafeTimedSerializer(app.secret_key)
+
+def generate_confirmation_token(email):
+    return s.dumps(email, salt='email-confirm-salt')
+
+def confirm_token(token, expiration=3600):
+    try:
+        email = s.loads(token, salt='email-confirm-salt', max_age=expiration)
+    except:
+        return False
+    return email
+
+def send_email(to, subject, template):
+    msg = Message(subject, recipients=[to], html=template)
+    mail.send(msg)
+
 # Custom filter to convert ObjectId to string
 @app.template_filter('to_str')
 def to_str(value):
     return str(value)
 
+#http://127.0.0.1:5000/
 # Routes
 @app.route('/')
 def index():
@@ -56,14 +85,56 @@ def signup():
         user_collection.insert_one({
             "username": username,
             "email": email,
-            "password": hashed_password
+            "password": hashed_password,
+            "confirmed": False  # Add a confirmed field
         })
 
+        token = generate_confirmation_token(email)
+        confirm_url = url_for('confirm_email', token=token, _external=True)
+        html = render_template('activate.html', confirm_url=confirm_url)
+        subject = "Please confirm your email"
+        send_email(email, subject, html)
+
         session['user'] = username
-        flash('Account created successfully', 'success')
-        return redirect(url_for('my_projects'))
+        flash('A confirmation email has been sent via email.', 'success')
+        return redirect(url_for('unconfirmed'))
 
     return render_template('signup.html')
+
+@app.route('/confirm/<token>')
+def confirm_email(token):
+    try:
+        email = confirm_token(token)
+    except:
+        flash('The confirmation link is invalid or has expired.', 'danger')
+        return redirect(url_for('index'))
+
+    user_collection = mongo.db[USER_COLLECTION]
+    user = user_collection.find_one({"email": email})
+
+    if user['confirmed']:
+        flash('Account already confirmed. Please login.', 'success')
+    else:
+        user_collection.update_one({"email": email}, {"$set": {"confirmed": True}})
+        flash('You have confirmed your account. Thanks!', 'success')
+
+    return redirect(url_for('login'))
+
+@app.route('/resend')
+def resend_confirmation():
+    if 'user' in session:
+        user_collection = mongo.db[USER_COLLECTION]
+        user = user_collection.find_one({"username": session['user']})
+        if user and not user['confirmed']:
+            token = generate_confirmation_token(user['email'])
+            confirm_url = url_for('confirm_email', token=token, _external=True)
+            html = render_template('activate.html', confirm_url=confirm_url)
+            subject = "Please confirm your email"
+            send_email(user['email'], subject, html)
+            flash('A new confirmation email has been sent.', 'success')
+            return redirect(url_for('unconfirmed'))
+    flash('Invalid request or user not logged in.', 'danger')
+    return redirect(url_for('index'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -75,6 +146,9 @@ def login():
         user = user_collection.find_one({"email": email})
 
         if user and bcrypt.check_password_hash(user['password'], password):
+            if not user['confirmed']:
+                flash('Please confirm your email address first.', 'danger')
+                return redirect(url_for('unconfirmed'))
             session['user'] = user['username']
             return redirect(url_for('my_projects'))
         else:
@@ -88,6 +162,16 @@ def logout():
     session.pop('user', None)
     flash('You have been logged out', 'success')
     return redirect(url_for('index'))
+
+@app.route('/unconfirmed')
+def unconfirmed():
+    if 'user' in session:
+        user_collection = mongo.db[USER_COLLECTION]
+        user = user_collection.find_one({"username": session['user']})
+        if user['confirmed']:
+            return redirect(url_for('my_projects'))
+    flash('Please confirm your account!', 'warning')
+    return render_template('unconfirmed.html')
 
 def take_screenshot(iframe_code):
     # Create a temporary HTML file with the iframe
