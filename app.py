@@ -12,12 +12,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import os
 import base64
-import time
-
-
-
-
-
 
 app = Flask(__name__)
 app.secret_key = '4b3403665fea6c6628d7f6c02b8d93e1'  # Replace with your generated secret key
@@ -36,7 +30,6 @@ app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USE_SSL'] = False
 app.config['MAIL_USERNAME'] = 'LinksforLynxautoemailsender@gmail.com'  # Use your actual Gmail address
-#use env variables for password
 app.config['MAIL_PASSWORD'] = os.getenv('PASSWORD')     # Use your generated App Password
 app.config['MAIL_DEFAULT_SENDER'] = 'LinksforLynxautoemailsender@gmail.com'  # Ensure this matches MAIL_USERNAME
 
@@ -63,7 +56,6 @@ def send_email(to, subject, template):
 def to_str(value):
     return str(value)
 
-#http://127.0.0.1:5000/
 # Routes
 @app.route('/')
 def index():
@@ -256,6 +248,41 @@ def add_project():
 
     return render_template('add_project.html')
 
+@app.route('/edit_project/<project_id>', methods=['GET', 'POST'])
+def edit_project(project_id):
+    if 'user' not in session:
+        flash('You need to login first', 'danger')
+        return redirect(url_for('login'))
+
+    project_collection = mongo.db[PROJECT_COLLECTION]
+    project = project_collection.find_one({"_id": ObjectId(project_id), "username": session['user']})
+
+    if not project:
+        flash('Project not found or you do not have permission to edit this project', 'danger')
+        return redirect(url_for('my_projects'))
+
+    if request.method == 'POST':
+        title = request.form.get('title')
+        description = request.form.get('description')
+        iframe_code = request.form.get('iframe_code')
+
+        screenshot = take_screenshot(iframe_code)
+        if screenshot:
+            screenshot_base64 = base64.b64encode(screenshot).decode('utf-8')
+        else:
+            screenshot_base64 = None
+
+        project_collection.update_one({"_id": ObjectId(project_id)}, {"$set": {
+            "title": title,
+            "description": description,
+            "iframe_code": iframe_code,
+            "screenshot": screenshot_base64
+        }})
+
+        flash('Project updated successfully', 'success')
+        return redirect(url_for('my_projects'))
+
+    return render_template('edit_project.html', project=project)
 
 @app.route('/my_projects')
 def my_projects():
