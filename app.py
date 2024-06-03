@@ -12,6 +12,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import os
 import base64
+import time
 
 app = Flask(__name__)
 app.secret_key = '4b3403665fea6c6628d7f6c02b8d93e1'  # Replace with your generated secret key
@@ -30,7 +31,7 @@ app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USE_SSL'] = False
 app.config['MAIL_USERNAME'] = 'LinksforLynxautoemailsender@gmail.com'  # Use your actual Gmail address
-app.config['MAIL_PASSWORD'] = os.getenv('PASSWORD')     # Use your generated App Password
+app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')  # Use your generated App Password
 app.config['MAIL_DEFAULT_SENDER'] = 'LinksforLynxautoemailsender@gmail.com'  # Ensure this matches MAIL_USERNAME
 
 mail = Mail(app)
@@ -48,8 +49,11 @@ def confirm_token(token, expiration=3600):
 
 def send_email(to, subject, template):
     msg = Message(subject, recipients=[to], html=template)
-    mail.send(msg)
-    print(f"Sending email to: {to}") 
+    try:
+        mail.send(msg)
+        print(f"Sending email to: {to}") 
+    except Exception as e:
+        print(f"Failed to send email to {to}. Error: {e}")
 
 # Custom filter to convert ObjectId to string
 @app.template_filter('to_str')
@@ -183,7 +187,8 @@ def take_screenshot(iframe_code):
     options.add_argument('--headless')
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+    options.binary_location = "/usr/bin/google-chrome"  # Path to the Chrome binary
+    driver = webdriver.Chrome(service=Service("/usr/local/bin/chromedriver"), options=options)
     
     driver.get('file://' + os.path.abspath('temp.html'))
     
@@ -248,41 +253,6 @@ def add_project():
 
     return render_template('add_project.html')
 
-@app.route('/edit_project/<project_id>', methods=['GET', 'POST'])
-def edit_project(project_id):
-    if 'user' not in session:
-        flash('You need to login first', 'danger')
-        return redirect(url_for('login'))
-
-    project_collection = mongo.db[PROJECT_COLLECTION]
-    project = project_collection.find_one({"_id": ObjectId(project_id), "username": session['user']})
-
-    if not project:
-        flash('Project not found or you do not have permission to edit this project', 'danger')
-        return redirect(url_for('my_projects'))
-
-    if request.method == 'POST':
-        title = request.form.get('title')
-        description = request.form.get('description')
-        iframe_code = request.form.get('iframe_code')
-
-        screenshot = take_screenshot(iframe_code)
-        if screenshot:
-            screenshot_base64 = base64.b64encode(screenshot).decode('utf-8')
-        else:
-            screenshot_base64 = None
-
-        project_collection.update_one({"_id": ObjectId(project_id)}, {"$set": {
-            "title": title,
-            "description": description,
-            "iframe_code": iframe_code,
-            "screenshot": screenshot_base64
-        }})
-
-        flash('Project updated successfully', 'success')
-        return redirect(url_for('my_projects'))
-
-    return render_template('edit_project.html', project=project)
 
 @app.route('/my_projects')
 def my_projects():
@@ -338,6 +308,45 @@ def delete_project(project_id):
         flash('You do not have permission to delete this project', 'danger')
 
     return redirect(url_for('my_projects'))
+
+@app.route('/edit_project/<project_id>', methods=['GET', 'POST'])
+def edit_project(project_id):
+    if 'user' not in session:
+        flash('You need to login first', 'danger')
+        return redirect(url_for('login'))
+
+    project_collection = mongo.db[PROJECT_COLLECTION]
+    project = project_collection.find_one({"_id": ObjectId(project_id)})
+
+    if not project or project['username'] != session['user']:
+        flash('You do not have permission to edit this project', 'danger')
+        return redirect(url_for('my_projects'))
+
+    if request.method == 'POST':
+        title = request.form.get('title')
+        description = request.form.get('description')
+        iframe_code = request.form.get('iframe_code')
+
+        # Debug print for iframe code
+        print(f"Full iframe HTML code: {iframe_code}")
+
+        screenshot = take_screenshot(iframe_code)
+        if screenshot:
+            screenshot_base64 = base64.b64encode(screenshot).decode('utf-8')
+        else:
+            screenshot_base64 = None
+
+        project_collection.update_one({"_id": ObjectId(project_id)}, {"$set": {
+            "title": title,
+            "description": description,
+            "iframe_code": iframe_code,
+            "screenshot": screenshot_base64
+        }})
+
+        flash('Project updated successfully', 'success')
+        return redirect(url_for('my_projects'))
+
+    return render_template('edit_project.html', project=project)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
