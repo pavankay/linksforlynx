@@ -29,9 +29,9 @@ app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 587
 app.config['MAIL_USE_TLS'] = True
 app.config['MAIL_USE_SSL'] = False
-app.config['MAIL_USERNAME'] = 'your_email@gmail.com'  # Use your actual Gmail address
-app.config['MAIL_PASSWORD'] = 'your_app_password'     # Use your generated App Password
-app.config['MAIL_DEFAULT_SENDER'] = 'your_email@gmail.com'  # Ensure this matches MAIL_USERNAME
+app.config['MAIL_USERNAME'] = 'LinksforLynxautoemailsender@gmail.com'  # Use your actual Gmail address
+app.config['MAIL_PASSWORD'] = 'lgyi gyds byfr tmwl'     # Use your generated App Password
+app.config['MAIL_DEFAULT_SENDER'] = 'LinksforLynxautoemailsender@gmail.com'  # Ensure this matches MAIL_USERNAME
 
 mail = Mail(app)
 s = URLSafeTimedSerializer(app.secret_key)
@@ -49,6 +49,7 @@ def confirm_token(token, expiration=3600):
 def send_email(to, subject, template):
     msg = Message(subject, recipients=[to], html=template)
     mail.send(msg)
+    print(f"Sending email to: {to}") 
 
 # Custom filter to convert ObjectId to string
 @app.template_filter('to_str')
@@ -283,4 +284,4 @@ def project_details(project_id):
     return render_template('project_details.html', project=project)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5000)
