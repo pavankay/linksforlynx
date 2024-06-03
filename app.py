@@ -12,6 +12,12 @@ from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
 import os
 import base64
+import time
+
+
+
+
+
 
 app = Flask(__name__)
 app.secret_key = '4b3403665fea6c6628d7f6c02b8d93e1'  # Replace with your generated secret key
@@ -189,27 +195,28 @@ def take_screenshot(iframe_code):
     
     driver.get('file://' + os.path.abspath('temp.html'))
     
-    # Wait for the iframe to load completely
     try:
-        # Switch to the iframe
-        driver.switch_to.frame(driver.find_element(By.TAG_NAME, "iframe"))
-        # Wait for a specific element within the iframe to be visible
+        # Wait for the iframe to load completely
         WebDriverWait(driver, 10).until(
-            EC.visibility_of_element_located((By.TAG_NAME, "body"))
+            EC.presence_of_element_located((By.TAG_NAME, "iframe"))
         )
-        # Switch back to the default content
+        driver.switch_to.frame(driver.find_element(By.TAG_NAME, "iframe"))
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.TAG_NAME, "body"))
+        )
         driver.switch_to.default_content()
+        
+        # Take screenshot
+        screenshot = driver.get_screenshot_as_png()
+        print("Screenshot taken successfully.")
     except Exception as e:
-        print(f"Error waiting for iframe to load: {e}")
-    
-    # Take screenshot
-    screenshot = driver.get_screenshot_as_png()
-    
-    # Close the driver
-    driver.quit()
-    
-    # Remove the temporary file
-    os.remove('temp.html')
+        print(f"Error taking screenshot: {e}")
+        screenshot = None
+    finally:
+        # Close the driver
+        driver.quit()
+        # Remove the temporary file
+        os.remove('temp.html')
     
     return screenshot
 
@@ -228,7 +235,10 @@ def add_project():
         print(f"Full iframe HTML code: {iframe_code}")
 
         screenshot = take_screenshot(iframe_code)
-        screenshot_base64 = base64.b64encode(screenshot).decode('utf-8')
+        if screenshot:
+            screenshot_base64 = base64.b64encode(screenshot).decode('utf-8')
+        else:
+            screenshot_base64 = None
 
         project_collection = mongo.db[PROJECT_COLLECTION]
         project_id = project_collection.insert_one({
@@ -245,6 +255,7 @@ def add_project():
         return redirect(url_for('my_projects'))
 
     return render_template('add_project.html')
+
 
 @app.route('/my_projects')
 def my_projects():
@@ -283,6 +294,23 @@ def project_details(project_id):
     print(f"Project title: {project['title']}, iframe HTML: {project['iframe_code']}")  # Debug print for iframe code
 
     return render_template('project_details.html', project=project)
+
+@app.route('/delete_project/<project_id>', methods=['POST'])
+def delete_project(project_id):
+    if 'user' not in session:
+        flash('You need to login first', 'danger')
+        return redirect(url_for('login'))
+
+    project_collection = mongo.db[PROJECT_COLLECTION]
+    project = project_collection.find_one({"_id": ObjectId(project_id)})
+
+    if project and project['username'] == session['user']:
+        project_collection.delete_one({"_id": ObjectId(project_id)})
+        flash('Project deleted successfully', 'success')
+    else:
+        flash('You do not have permission to delete this project', 'danger')
+
+    return redirect(url_for('my_projects'))
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
