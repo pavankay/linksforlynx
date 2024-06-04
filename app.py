@@ -4,15 +4,8 @@ from flask_bcrypt import Bcrypt
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from bson.objectid import ObjectId
-from selenium import webdriver
-from selenium.webdriver.chrome.service import Service
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 import os
 import base64
-import time
 
 app = Flask(__name__)
 app.secret_key = '4b3403665fea6c6628d7f6c02b8d93e1'  # Replace with your generated secret key
@@ -177,46 +170,6 @@ def unconfirmed():
     flash('Please confirm your account!', 'warning')
     return render_template('unconfirmed.html')
 
-def take_screenshot(iframe_code):
-    # Create a temporary HTML file with the iframe
-    with open('temp.html', 'w') as f:
-        f.write(f"<html><body>{iframe_code}</body></html>")
-
-    # Set up Selenium to use Chrome
-    options = webdriver.ChromeOptions()
-    options.add_argument('--headless')
-    options.add_argument('--no-sandbox')
-    options.add_argument('--disable-dev-shm-usage')
-    options.binary_location = "/usr/bin/google-chrome"  # Path to the Chrome binary
-    driver = webdriver.Chrome(service=Service("/usr/local/bin/chromedriver"), options=options)
-    
-    driver.get('file://' + os.path.abspath('temp.html'))
-    
-    try:
-        # Wait for the iframe to load completely
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.TAG_NAME, "iframe"))
-        )
-        driver.switch_to.frame(driver.find_element(By.TAG_NAME, "iframe"))
-        WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.TAG_NAME, "body"))
-        )
-        driver.switch_to.default_content()
-        
-        # Take screenshot
-        screenshot = driver.get_screenshot_as_png()
-        print("Screenshot taken successfully.")
-    except Exception as e:
-        print(f"Error taking screenshot: {e}")
-        screenshot = None
-    finally:
-        # Close the driver
-        driver.quit()
-        # Remove the temporary file
-        os.remove('temp.html')
-    
-    return screenshot
-
 @app.route('/add_project', methods=['GET', 'POST'])
 def add_project():
     if 'user' not in session:
@@ -231,11 +184,8 @@ def add_project():
         # Debug print for iframe code
         print(f"Full iframe HTML code: {iframe_code}")
 
-        screenshot = take_screenshot(iframe_code)
-        if screenshot:
-            screenshot_base64 = base64.b64encode(screenshot).decode('utf-8')
-        else:
-            screenshot_base64 = None
+        # Placeholder screenshot
+        screenshot_base64 = None
 
         project_collection = mongo.db[PROJECT_COLLECTION]
         project_id = project_collection.insert_one({
@@ -330,11 +280,8 @@ def edit_project(project_id):
         # Debug print for iframe code
         print(f"Full iframe HTML code: {iframe_code}")
 
-        screenshot = take_screenshot(iframe_code)
-        if screenshot:
-            screenshot_base64 = base64.b64encode(screenshot).decode('utf-8')
-        else:
-            screenshot_base64 = None
+        # Placeholder screenshot
+        screenshot_base64 = None
 
         project_collection.update_one({"_id": ObjectId(project_id)}, {"$set": {
             "title": title,
