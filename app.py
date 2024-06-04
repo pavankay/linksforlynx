@@ -4,8 +4,15 @@ from flask_bcrypt import Bcrypt
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from bson.objectid import ObjectId
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
 import os
 import base64
+import time
 
 app = Flask(__name__)
 app.secret_key = '4b3403665fea6c6628d7f6c02b8d93e1'  # Replace with your generated secret key
@@ -42,8 +49,11 @@ def confirm_token(token, expiration=3600):
 
 def send_email(to, subject, template):
     msg = Message(subject, recipients=[to], html=template)
-    mail.send(msg)
-    print(f"Sending email to: {to}")
+    try:
+        mail.send(msg)
+        print(f"Sending email to: {to}") 
+    except Exception as e:
+        print(f"Failed to send email to {to}. Error: {e}")
 
 # Custom filter to convert ObjectId to string
 @app.template_filter('to_str')
@@ -164,49 +174,48 @@ def unconfirmed():
         user = user_collection.find_one({"username": session['user']})
         if user['confirmed']:
             return redirect(url_for('my_projects'))
-    flash('Please confirm your account! Check your email (and spam folder) for the confirmation link.', 'warning')
+    flash('Please confirm your account!', 'warning')
     return render_template('unconfirmed.html')
 
-# Function to take screenshot - commented out for now
-# def take_screenshot(iframe_code):
-#     # Create a temporary HTML file with the iframe
-#     with open('temp.html', 'w') as f:
-#         f.write(f"<html><body>{iframe_code}</body></html>")
+def take_screenshot(iframe_code):
+    # Create a temporary HTML file with the iframe
+    with open('temp.html', 'w') as f:
+        f.write(f"<html><body>{iframe_code}</body></html>")
 
-#     # Set up Selenium to use Chrome
-#     options = webdriver.ChromeOptions()
-#     options.add_argument('--headless')
-#     options.add_argument('--no-sandbox')
-#     options.add_argument('--disable-dev-shm-usage')
-#     options.binary_location = "/usr/bin/google-chrome"  # Path to the Chrome binary
-#     driver = webdriver.Chrome(service=Service("/usr/local/bin/chromedriver"), options=options)
+    # Set up Selenium to use Chrome
+    options = webdriver.ChromeOptions()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.binary_location = "/usr/bin/google-chrome"  # Path to the Chrome binary
+    driver = webdriver.Chrome(service=Service("/usr/local/bin/chromedriver"), options=options)
     
-#     driver.get('file://' + os.path.abspath('temp.html'))
+    driver.get('file://' + os.path.abspath('temp.html'))
     
-#     try:
-#         # Wait for the iframe to load completely
-#         WebDriverWait(driver, 10).until(
-#             EC.presence_of_element_located((By.TAG_NAME, "iframe"))
-#         )
-#         driver.switch_to.frame(driver.find_element(By.TAG_NAME, "iframe"))
-#         WebDriverWait(driver, 10).until(
-#             EC.presence_of_element_located((By.TAG_NAME, "body"))
-#         )
-#         driver.switch_to.default_content()
+    try:
+        # Wait for the iframe to load completely
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.TAG_NAME, "iframe"))
+        )
+        driver.switch_to.frame(driver.find_element(By.TAG_NAME, "iframe"))
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.TAG_NAME, "body"))
+        )
+        driver.switch_to.default_content()
         
-#         # Take screenshot
-#         screenshot = driver.get_screenshot_as_png()
-#         print("Screenshot taken successfully.")
-#     except Exception as e:
-#         print(f"Error taking screenshot: {e}")
-#         screenshot = None
-#     finally:
-#         # Close the driver
-#         driver.quit()
-#         # Remove the temporary file
-#         os.remove('temp.html')
+        # Take screenshot
+        screenshot = driver.get_screenshot_as_png()
+        print("Screenshot taken successfully.")
+    except Exception as e:
+        print(f"Error taking screenshot: {e}")
+        screenshot = None
+    finally:
+        # Close the driver
+        driver.quit()
+        # Remove the temporary file
+        os.remove('temp.html')
     
-#     return screenshot
+    return screenshot
 
 @app.route('/add_project', methods=['GET', 'POST'])
 def add_project():
@@ -222,14 +231,11 @@ def add_project():
         # Debug print for iframe code
         print(f"Full iframe HTML code: {iframe_code}")
 
-        # screenshot = take_screenshot(iframe_code)
-        # if screenshot:
-        #     screenshot_base64 = base64.b64encode(screenshot).decode('utf-8')
-        # else:
-        #     screenshot_base64 = None
-
-        # Using a placeholder image instead
-        screenshot_base64 = None  # Replace this with actual base64 encoded string of your placeholder image if needed
+        screenshot = take_screenshot(iframe_code)
+        if screenshot:
+            screenshot_base64 = base64.b64encode(screenshot).decode('utf-8')
+        else:
+            screenshot_base64 = None
 
         project_collection = mongo.db[PROJECT_COLLECTION]
         project_id = project_collection.insert_one({
@@ -246,6 +252,7 @@ def add_project():
         return redirect(url_for('my_projects'))
 
     return render_template('add_project.html')
+
 
 @app.route('/my_projects')
 def my_projects():
@@ -301,6 +308,45 @@ def delete_project(project_id):
         flash('You do not have permission to delete this project', 'danger')
 
     return redirect(url_for('my_projects'))
+
+@app.route('/edit_project/<project_id>', methods=['GET', 'POST'])
+def edit_project(project_id):
+    if 'user' not in session:
+        flash('You need to login first', 'danger')
+        return redirect(url_for('login'))
+
+    project_collection = mongo.db[PROJECT_COLLECTION]
+    project = project_collection.find_one({"_id": ObjectId(project_id)})
+
+    if not project or project['username'] != session['user']:
+        flash('You do not have permission to edit this project', 'danger')
+        return redirect(url_for('my_projects'))
+
+    if request.method == 'POST':
+        title = request.form.get('title')
+        description = request.form.get('description')
+        iframe_code = request.form.get('iframe_code')
+
+        # Debug print for iframe code
+        print(f"Full iframe HTML code: {iframe_code}")
+
+        screenshot = take_screenshot(iframe_code)
+        if screenshot:
+            screenshot_base64 = base64.b64encode(screenshot).decode('utf-8')
+        else:
+            screenshot_base64 = None
+
+        project_collection.update_one({"_id": ObjectId(project_id)}, {"$set": {
+            "title": title,
+            "description": description,
+            "iframe_code": iframe_code,
+            "screenshot": screenshot_base64
+        }})
+
+        flash('Project updated successfully', 'success')
+        return redirect(url_for('my_projects'))
+
+    return render_template('edit_project.html', project=project)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
