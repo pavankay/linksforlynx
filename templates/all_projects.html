@@ -3,27 +3,29 @@
 {% block title %}All Projects - Links for Lynx{% endblock %}
 
 {% block content %}
-<div class="row mt-5">
-    <div class="col-md-12">
-        <h1 class="text-center">All Projects</h1>
-        {% if projects %}
-            <div class="row">
-                {% for project in projects %}
-                <div class="col-md-4">
-                    <div class="card mb-4">
-                        <img src="data:image/png;base64,{{ project['screenshot'] }}" class="card-img-top" alt="Project Screenshot">
-                        <div class="card-body">
-                            <h5 class="card-title">{{ project['title'] }}</h5>
-                            <p class="card-text">{{ project['description'] }}</p>
-                            <a href="{{ url_for('project_details', project_id=project['_id']) }}" class="btn btn-primary">View Project</a>
+<div class="container mt-7 pt-7">
+    <div class="row">
+        <div class="col-md-12 text-center">
+            <h1 class="mt-7">All Projects</h1>
+            {% if projects %}
+                <div class="row">
+                    {% for project in projects %}
+                    <div class="col-md-4">
+                        <div class="card mb-4">
+                            <img src="data:image/png;base64,{{ project['screenshot'] }}" class="card-img-top" alt="Project Screenshot">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ project['title'] }}</h5>
+                                <p class="card-text">{{ project['description'] }}</p>
+                                <a href="{{ url_for('project_details', project_id=project['_id']) }}" class="btn btn-primary">View Project</a>
+                            </div>
                         </div>
                     </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
-            </div>
-        {% else %}
-            <p class="text-center">No projects found.</p>
-        {% endif %}
+            {% else %}
+                <p class="text-center">No projects found.</p>
+            {% endif %}
+        </div>
     </div>
 </div>
 {% endblock %}
