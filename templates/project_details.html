@@ -1,18 +1,41 @@
 {% extends "base.html" %}
 
-{% block title %}Project Details - {{ project.title }}{% endblock %}
+{% block title %}Project Details - Links for Lynx{% endblock %}
 
 {% block content %}
-<div class="row mt-5">
-    <div class="col-md-12">
-        <h1>{{ project.title }}</h1>
-        <p><strong>Description:</strong> {{ project.description }}</p>
-        <p><strong>Created by:</strong> {{ project.username }}</p>
-        <!-- Render the iframe code correctly -->
-        <div class="embed-responsive embed-responsive-16by9">
-            {{ project.iframe_code|safe }}
+<div class="container mt-5 pt-5">
+    <div class="row">
+        <div class="col-md-8">
+            <h1>{{ project.title }}</h1>
+            <p>{{ project.description }}</p>
+            <div class="iframe-container">
+                {{ project.iframe_code | safe }}
+            </div>
         </div>
-        <a href="{{ url_for('my_projects') }}" class="btn btn-primary mt-3">Back</a>
+        <div class="col-md-4">
+            <h2>Comments</h2>
+            {% if 'user' in session %}
+            <form method="POST" action="{{ url_for('add_comment', project_id=project._id) }}">
+                <div class="mb-3">
+                    <textarea class="form-control" name="content" placeholder="Add a comment" required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit</button>
+            </form>
+            {% endif %}
+            <div class="mt-4">
+                {% for comment in comments %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ comment.author }}</h5>
+                        <p class="card-text">{{ comment.content }}</p>
+                        <p class="card-text"><small class="text-muted">{{ comment.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</small></p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+       
     </div>
+    <a href="{{ url_for('my_projects') }}" class="btn btn-primary mt-3">Back</a>
 </div>
 {% endblock %}

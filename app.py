@@ -4,6 +4,8 @@ from flask_bcrypt import Bcrypt
 from flask_mail import Mail, Message
 from itsdangerous import URLSafeTimedSerializer
 from bson.objectid import ObjectId
+from datetime import datetime
+from flask_paginate import Pagination, get_page_parameter
 import os
 import base64
 
@@ -193,7 +195,8 @@ def add_project():
             "title": title,
             "description": description,
             "iframe_code": iframe_code,
-            "screenshot": screenshot_base64
+            "screenshot": screenshot_base64,
+            "comments": []  # Initialize an empty comments list
         }).inserted_id
 
         print(f"New project created with ID: {project_id}")
@@ -203,34 +206,42 @@ def add_project():
 
     return render_template('add_project.html')
 
-
 @app.route('/my_projects')
 def my_projects():
     if 'user' not in session:
         flash('You need to login first', 'danger')
         return redirect(url_for('login'))
 
+    page = request.args.get(get_page_parameter(), type=int, default=1)
+    per_page = 5
     project_collection = mongo.db[PROJECT_COLLECTION]
-    projects = list(project_collection.find({"username": session['user']}))
+    projects = list(project_collection.find({"username": session['user']}).skip((page - 1) * per_page).limit(per_page))
+    total = project_collection.count_documents({"username": session['user']})
+
+    pagination = Pagination(page=page, total=total, record_name='projects', per_page=per_page)
 
     # Debug print for projects
     print(f"Projects retrieved for user {session['user']}: {projects}")
 
-    return render_template('projects.html', projects=projects)
+    return render_template('projects.html', projects=projects, pagination=pagination)
 
 @app.route('/all_projects')
 def all_projects():
+    page = request.args.get(get_page_parameter(), type=int, default=1)
+    per_page = 5
     project_collection = mongo.db[PROJECT_COLLECTION]
-    projects = list(project_collection.find())
+    projects = list(project_collection.find().skip((page - 1) * per_page).limit(per_page))
+    total = project_collection.count_documents({})
+
+    pagination = Pagination(page=page, total=total, record_name='projects', per_page=per_page)
 
     # Debug print for all projects
     print(f"All projects retrieved: {projects}")
 
-    return render_template('all_projects.html', projects=projects)
+    return render_template('all_projects.html', projects=projects, pagination=pagination)
 
-@app.route('/project/<project_id>')
+@app.route('/project/<project_id>', methods=['GET', 'POST'])
 def project_details(project_id):
-    print(f"Fetching project details for project_id: {project_id}")  # Debug statement
     project_collection = mongo.db[PROJECT_COLLECTION]
     project = project_collection.find_one({"_id": ObjectId(project_id)})
     
@@ -238,9 +249,26 @@ def project_details(project_id):
         flash('Project not found', 'danger')
         return redirect(url_for('my_projects'))
 
+    if request.method == 'POST':
+        if 'user' not in session:
+            flash('You need to login first', 'danger')
+            return redirect(url_for('login'))
+
+        comment = request.form.get('comment')
+        if comment:
+            comment_data = {
+                "username": session['user'],
+                "comment": comment,
+                "timestamp": datetime.utcnow()
+            }
+            project_collection.update_one({"_id": ObjectId(project_id)}, {"$push": {"comments": comment_data}})
+            flash('Comment added successfully', 'success')
+            return redirect(url_for('project_details', project_id=project_id))
+
+    comments = project.get('comments', [])
     print(f"Project title: {project['title']}, iframe HTML: {project['iframe_code']}")  # Debug print for iframe code
 
-    return render_template('project_details.html', project=project)
+    return render_template('project_details.html', project=project, comments=comments)
 
 @app.route('/delete_project/<project_id>', methods=['POST'])
 def delete_project(project_id):
@@ -294,6 +322,31 @@ def edit_project(project_id):
         return redirect(url_for('my_projects'))
 
     return render_template('edit_project.html', project=project)
+
+@app.route('/add_comment/<project_id>', methods=['POST'])
+def add_comment(project_id):
+    if 'user' not in session:
+        flash('You need to login first', 'danger')
+        return redirect(url_for('login'))
+
+    content = request.form.get('content')
+    author = session['user']
+    timestamp = datetime.now()
+
+    comment = {
+        "author": author,
+        "content": content,
+        "timestamp": timestamp
+    }
+
+    project_collection = mongo.db[PROJECT_COLLECTION]
+    project_collection.update_one(
+        {"_id": ObjectId(project_id)},
+        {"$push": {"comments": comment}}
+    )
+
+    flash('Comment added successfully', 'success')
+    return redirect(url_for('project_details', project_id=project_id))
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
