@@ -6,7 +6,7 @@
 <div class="row mt-5">
     <div class="col-md-6 mx-auto">
         <h1>Sign Up</h1>
-        <form method="POST" action="{{ url_for('signup') }}">
+        <form method="POST" action="{{ url_for('signup') }}" id="signupForm">
             <div class="mb-3">
                 <label for="username" class="form-label">Username</label>
                 <input type="text" class="form-control" id="username" name="username" required>
@@ -29,7 +29,12 @@
 </div>
 
 <script>
-    document.querySelector('form').addEventListener('submit', function() {
+    document.getElementById('signupForm').addEventListener('submit', function(event) {
+        // Convert specific inputs to lowercase
+        document.getElementById('username').value = document.getElementById('username').value.toLowerCase();
+        document.getElementById('email').value = document.getElementById('email').value.toLowerCase();
+
+        // Disable the signup button
         document.getElementById('signupButton').disabled = true;
         document.getElementById('signupButton').innerText = 'Signing Up...';
     });

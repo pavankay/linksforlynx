@@ -5,8 +5,8 @@
 {% block content %}
 <div class="row mt-5">
     <div class="col-md-6 mx-auto">
-        <h1 class="text-center">Login</h1>
-        <form method="POST">
+        <h1>Login</h1>
+        <form method="POST" action="{{ url_for('login') }}" id="loginForm">
             <div class="mb-3">
                 <label for="email" class="form-label">Email address</label>
                 <input type="email" class="form-control" id="email" name="email" required>
@@ -15,11 +15,19 @@
                 <label for="password" class="form-label">Password</label>
                 <input type="password" class="form-control" id="password" name="password" required>
             </div>
-            <button type="submit" class="btn btn-primary w-100">Login</button>
+            <button type="submit" class="btn btn-primary" id="loginButton">Login</button>
         </form>
-        <div class="mt-3 text-center">
-            <p>Don't have an account? <a href="{{ url_for('signup') }}">Sign up here</a></p>
-        </div>
     </div>
 </div>
+
+<script>
+    document.getElementById('loginForm').addEventListener('submit', function(event) {
+        // Convert email input to lowercase
+        document.getElementById('email').value = document.getElementById('email').value.toLowerCase();
+
+        // Disable the login button
+        document.getElementById('loginButton').disabled = true;
+        document.getElementById('loginButton').innerText = 'Logging In...';
+    });
+</script>
 {% endblock %}
