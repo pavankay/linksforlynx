@@ -16,7 +16,8 @@ app.secret_key = '4b3403665fea6c6628d7f6c02b8d93e1'  # Replace with your generat
 DB_NAME = "LinksforLynx"
 USER_COLLECTION = "users"
 PROJECT_COLLECTION = "projects"
-app.config["MONGO_URI"] = f"mongodb+srv://pavan:PsxriMfTSYLltWgK@lfl.rvewoyg.mongodb.net/{DB_NAME}?retryWrites=true&w=majority"
+Mongo_password = os.getenv('MONGO_DB')
+app.config["MONGO_URI"] = f"mongodb+srv://pavan:{Mongo_password}@lfl.rvewoyg.mongodb.net/{DB_NAME}?retryWrites=true&w=majority"
 mongo = PyMongo(app)
 bcrypt = Bcrypt(app)
 
@@ -149,6 +150,7 @@ def login():
                 flash('Please confirm your email address first.', 'danger')
                 return redirect(url_for('unconfirmed'))
             session['user'] = user['username']
+            session['is_admin'] = (email == 'admin@admin.admin')  # Set is_admin flag for admin user
             return redirect(url_for('my_projects'))
         else:
             flash('Invalid email or password', 'danger')
@@ -159,6 +161,7 @@ def login():
 @app.route('/logout')
 def logout():
     session.pop('user', None)
+    session.pop('is_admin', None)  # Clear the is_admin flag
     flash('You have been logged out', 'success')
     return redirect(url_for('index'))
 
@@ -215,8 +218,14 @@ def my_projects():
     page = request.args.get(get_page_parameter(), type=int, default=1)
     per_page = 5
     project_collection = mongo.db[PROJECT_COLLECTION]
-    projects = list(project_collection.find({"username": session['user']}).skip((page - 1) * per_page).limit(per_page))
-    total = project_collection.count_documents({"username": session['user']})
+    
+    # Check if the user is an admin
+    if session.get('is_admin'):
+        projects = list(project_collection.find().skip((page - 1) * per_page).limit(per_page))
+        total = project_collection.count_documents({})
+    else:
+        projects = list(project_collection.find({"username": session['user']}).skip((page - 1) * per_page).limit(per_page))
+        total = project_collection.count_documents({"username": session['user']})
 
     pagination = Pagination(page=page, total=total, record_name='projects', per_page=per_page)
 
@@ -279,7 +288,7 @@ def delete_project(project_id):
     project_collection = mongo.db[PROJECT_COLLECTION]
     project = project_collection.find_one({"_id": ObjectId(project_id)})
 
-    if project and project['username'] == session['user']:
+    if project and (project['username'] == session['user'] or session.get('is_admin')):
         project_collection.delete_one({"_id": ObjectId(project_id)})
         flash('Project deleted successfully', 'success')
     else:
@@ -296,7 +305,7 @@ def edit_project(project_id):
     project_collection = mongo.db[PROJECT_COLLECTION]
     project = project_collection.find_one({"_id": ObjectId(project_id)})
 
-    if not project or project['username'] != session['user']:
+    if not project or (project['username'] != session['user'] and not session.get('is_admin')):
         flash('You do not have permission to edit this project', 'danger')
         return redirect(url_for('my_projects'))
 
